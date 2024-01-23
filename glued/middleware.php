@@ -3,7 +3,7 @@
 declare(strict_types=1);
 use DI\Container;
 use Glued\Lib\Middleware\TimerMiddleware;
-use Middlewares\TrailingSlash;
+use Glued\Lib\Middleware\TrailingSlash;
 use Nyholm\Psr7\Response as Psr7Response;
 use Slim\App;
 use Slim\Exception\HttpNotFoundException;
@@ -32,10 +32,15 @@ $app->addBodyParsingMiddleware();
 
 // TrailingSlash(false) removes the trailing from requests, for example
 // `https://example.com/user/` will change into https://example.com/user.
-// Optionally, setting redirect(true) enforces a 301 redirect.
-//$trailingSlash = new TrailingSlash(false);
-//$trailingSlash->redirect();
-//$app->add($trailingSlash);
+// Setting redirect(true) enforces a 301 redirect. The second parameter
+// in TrailingSlash controls the inclusion of the port the Location header
+// of the redirect. Not including the port is wanted as this microservice
+// is supposed to run behind the nginx+glued-core as its auth proxy, otherwise
+// users would get redirected directly to the backend port.
+// TODO: fix glued-lib trailingSlash to do only path-based redirects (no full url)
+$trailingSlash = new TrailingSlash(false, false);
+$trailingSlash->redirect();
+$app->add($trailingSlash);
 
 
 // RoutingMiddleware provides the FastRoute router. See
@@ -54,28 +59,7 @@ $app->add(new MethodOverrideMiddleware);
 
 // Error handling middleware. This middleware must be added last. It will not handle
 // any exceptions/errors for middleware added after it.
-$jsonErrorHandler = function ($exception, $inspector) {
-    global $settings;
-    header("Content-Type: application/json");
-    $r['code']    = $exception->getCode();
-    $r['message'] = $exception->getMessage();
-    $r['title']   = $inspector->getExceptionName() ;
-    $r['file']    = $exception->getFile() . ' ' . $exception->getLine();
-    $short        = explode('\\', $r['title']);
-    $short        = (string) array_pop($short);
-    $r['hint']    = "No hints, sorry.";
-    $http         = '500 Internal Server Error';
-
-    if ($short == "AuthJwtException")       { $http = '401 Unauthorized'; $r['hint'] = "Login at ".$settings['oidc']['uri']['login']; }
-    if ($short == "AuthTokenException")     { $http = '401 Unauthorized'; $r['hint'] = "Login at ".$settings['oidc']['uri']['login']; }
-    if ($short == "HttpNotFoundException")  { $http = '404 Not fond'; }
-    if ($r['message'] == "MSSQL error.")    { $r['hint'] = sqlsrv_errors(); }
-
-    header($_SERVER['SERVER_PROTOCOL'].' '.$http);
-    echo json_encode($r, JSON_UNESCAPED_SLASHES);
-    exit;
-};
-
+$jsonErrorHandler = require_once(__ROOT__ . '/vendor/vaizard/glued-lib/src/Includes/json_error_handler.php');
 $app->add(new Zeuxisoo\Whoops\Slim\WhoopsMiddleware([
     'enable' => true,
     'editor' => 'phpstorm',

@@ -38,6 +38,7 @@ class IfController extends AbstractController
 
     private function transform($data)
     {
+        $objs = [];
         $transformer = new ArrayTransformer();
         $transformer
             ->set('domicile', 'CZ')
@@ -82,6 +83,9 @@ class IfController extends AbstractController
         $uri = 'https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/vyhledat';
         $content = '{"obchodniJmeno":"' . $q . '","pocet":10,"start":0,"razeni":[]}';
         $key = hash('md5', $uri . $content);
+        if (mb_strlen($q, 'UTF-8') < 2) {
+            throw new \Exception('Query string too short', 400);
+        }
 
         if ($this->fscache->has($key)) {
             $response = $this->fscache->get($key);
@@ -91,6 +95,7 @@ class IfController extends AbstractController
                 $f['save'] = $base = $this->settings['glued']['protocol'].$this->settings['glued']['hostname'].$this->settings['routes']['be_contacts_import_v1']['path'] . '/';
                 $f['save'] .= "$this->action/$fid";
             }
+            //if ($final == 'null') { throw new \Exception('At least two characters must be provided', 400); }
             return $final;
         }
 
@@ -129,9 +134,10 @@ class IfController extends AbstractController
         $result = $sstmt->get_result();
         $res = $result->fetch_all(MYSQLI_ASSOC);
         $sstmt->close();
+        $this->fscache->set($key, $response, 3600);
         */
 
-        //$this->fscache->set($key, $response, 3600);
+        //if ($final == 'null') { throw new \Exception('At least two characters must be provided', 400); }
         return $final;
     }
 
@@ -154,10 +160,11 @@ class IfController extends AbstractController
     public function act_r1(Request $request, Response $response, array $args = []): Response {
         $action = 'd65d2468-afe0-40c2-986c-e67047141013';
         $data = $this->fetch($args['q']);
-        $objs = $data;
-        //$objs = $this->transform($data);
-
-        return $response->withJson($objs);
+        $res = [
+            'results' => count($data),
+            'data' => $data
+        ];
+        return $response->withJson($res);
     }
 
 
