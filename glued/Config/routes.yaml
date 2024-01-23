@@ -32,8 +32,8 @@ routes:
     #########################################################
 
     be_if_svc_ares_gov_cz_act_v1:
-        pattern:    ${routes.be_if.path}/svc/ares_gov_cz/act/v1/{uuid}/{q}
-        path:       ${routes.be_if.path}/svc/ares_gov_cz/act/v1
+        pattern:    ${routes.be_if.path}/svc/ares_gov_cz/v1/act/{uuid}/{q}
+        path:       ${routes.be_if.path}/svc/ares_gov_cz/v1/act
         label:      Run action
         dscr:       Run an action
         service:    if
