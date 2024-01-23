@@ -82,6 +82,7 @@ class IfController extends AbstractController
     {
         $uri = 'https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/vyhledat';
         $content = '{"obchodniJmeno":"' . $q . '","pocet":10,"start":0,"razeni":[]}';
+        if (preg_match('/^\d{8}$/', $q)) { $content = '{"ico":["' . $q . '"],"pocet":10,"start":0,"razeni":[]}'; }
         $key = hash('md5', $uri . $content);
         if (mb_strlen($q, 'UTF-8') < 2) {
             throw new \Exception('Query string too short', 400);
