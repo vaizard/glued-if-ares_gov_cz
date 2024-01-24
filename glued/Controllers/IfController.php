@@ -78,15 +78,35 @@ class IfController extends AbstractController
     }
 
     //private function fetch(string $id, &$result_raw = null) :? mixed
-    private function fetch(string $q) : mixed
+    private function fetch(array $q) : mixed
     {
         $uri = 'https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/vyhledat';
-        $content = '{"obchodniJmeno":"' . $q . '","pocet":10,"start":0,"razeni":[]}';
-        if (preg_match('/^\d{8}$/', $q)) { $content = '{"ico":["' . $q . '"],"pocet":10,"start":0,"razeni":[]}'; }
-        $key = hash('md5', $uri . $content);
-        if (mb_strlen($q, 'UTF-8') < 2) {
-            throw new \Exception('Query string too short', 400);
+        $qValid = false;
+
+        $reqbody = [
+            'pocet' => 10,
+            'razeni' => []
+        ];
+        if (array_key_exists('q', $q)) {
+            $qValid = true;
+            if (is_array($q['q'])) { throw new \Exception('Only a single q parameter is allowed', 400); }
+            $reqbody["obchodniJmeno"] = $q['q'];
+            if (mb_strlen($q['q'], 'UTF-8') < 2) { throw new \Exception('Query string too short'); }
         }
+        if (array_key_exists('regid', $q)) {
+            $qValid = true;
+            if (is_string($q['regid'])) { $regids[] = $q['regid']; }
+            else { $regids = $q['regid']; }
+            foreach ($regids as $regidtest) {
+                if (!preg_match('/^\d{8}$/', $regidtest)) { throw new \Exception("Regid `$regidtest` is not valid.", 400); }
+            }
+            $reqbody["ico"] = $regids;
+        }
+        if (!$qValid) { throw new \Exception('Query request params `q` or `regid` missing.', 400); }
+
+
+        $content = json_encode($reqbody);
+        $key = hash('md5', $uri . $content);
 
         if ($this->fscache->has($key)) {
             $response = $this->fscache->get($key);
@@ -101,9 +121,6 @@ class IfController extends AbstractController
         }
 
         try {
-            if (mb_strlen($q, 'UTF-8') < 2) {
-                throw new \Exception('Query string too short');
-            }
             $client = new HttpBrowser(HttpClient::create(['timeout' => 20]));
             $client->setServerParameter('HTTP_USER_AGENT', 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:113.0) Gecko/20100101 Firefox/113.0');
             $client->setServerParameter('CONTENT_TYPE', 'application/json');
@@ -160,7 +177,11 @@ class IfController extends AbstractController
     }
     public function act_r1(Request $request, Response $response, array $args = []): Response {
         $action = 'd65d2468-afe0-40c2-986c-e67047141013';
-        $data = $this->fetch($args['q']);
+        $p = $request->getQueryParams();
+        $fp = [];
+        if (isset($p['regid'])) { $fp['regid'] = $p['regid']; }
+        if (isset($p['q'])) { $fp['q'] = $p['q']; }
+        $data = $this->fetch($fp);
         $res = [
             'results' => count($data),
             'data' => $data

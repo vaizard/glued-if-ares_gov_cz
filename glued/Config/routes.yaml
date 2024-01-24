@@ -32,7 +32,7 @@ routes:
     #########################################################
 
     be_if_svc_ares_gov_cz_act_v1:
-        pattern:    ${routes.be_if.path}/svc/ares_gov_cz/v1/act/{uuid}/{q}
+        pattern:    ${routes.be_if.path}/svc/ares_gov_cz/v1/act/{uuid}
         path:       ${routes.be_if.path}/svc/ares_gov_cz/v1/act
         label:      Run action
         dscr:       Run an action
