@@ -112,7 +112,8 @@ class IfController extends AbstractController
             $response = $this->fscache->get($key);
             $final = $this->transform($response);
             foreach ($final as &$f) {
-                $fid = $f['regid']['val'];
+                $fid = $f['regid']['val'] ?? false;
+                if (!$fid) { unset($final['$k']); } // clear items without a regid
                 $f['save'] = $base = $this->settings['glued']['protocol'].$this->settings['glued']['hostname'].$this->settings['routes']['be_contacts_import_v1']['path'] . '/';
                 $f['save'] .= "$this->action/$fid";
             }
@@ -133,9 +134,9 @@ class IfController extends AbstractController
         $final = $this->transform($response);
         $stmt = $this->mysqli->prepare($this->q);
 
-        foreach ($final as &$f) {
+        foreach ($final as $k => &$f) {
             $fid = $f['regid']['val'] ?? false;
-            if (!$fid) { continue; }
+            if (!$fid) { unset($final['$k']); } // clear items without a regid
             $obj = json_encode($f);
             $run = NULL;
             $stmt->bind_param("ssss", $this->action, $fid, $obj, $run);
@@ -143,20 +144,6 @@ class IfController extends AbstractController
             $f['save'] = $base = $this->settings['glued']['protocol'].$this->settings['glued']['hostname'].$this->settings['routes']['be_contacts_import_v1']['path'] . '/';
             $f['save'] .= "$this->action/$fid";
         }
-
-        /*
-        $sq = "SELECT bin_to_uuid(c_uuid, true), bin_to_uuid(c_action, true), c_fid FROM t_if__objects WHERE c_action = UUID_TO_BIN(?, true) AND c_fid IN (" . implode(',', array_fill(0, count($fids), '?')) . ")";
-        $sstmt = $this->mysqli->prepare($sq);
-        $sstmt->bind_param("s" . str_repeat("s", count($fids)), $act, ...$fids);
-        $sstmt->execute();
-        $sstmt->bind_result($uuid, $action, $fid);
-        $result = $sstmt->get_result();
-        $res = $result->fetch_all(MYSQLI_ASSOC);
-        $sstmt->close();
-        $this->fscache->set($key, $response, 3600);
-        */
-
-        //if ($final == 'null') { throw new \Exception('At least two characters must be provided', 400); }
         return $final;
     }
 
