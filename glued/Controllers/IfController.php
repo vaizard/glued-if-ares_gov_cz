@@ -116,7 +116,6 @@ class IfController extends AbstractController
                 $f['save'] = $base = $this->settings['glued']['protocol'].$this->settings['glued']['hostname'].$this->settings['routes']['be_contacts_import_v1']['path'] . '/';
                 $f['save'] .= "$this->action/$fid";
             }
-            //if ($final == 'null') { throw new \Exception('At least two characters must be provided', 400); }
             return $final;
         }
 
@@ -133,8 +132,10 @@ class IfController extends AbstractController
         $this->fscache->set($key, $response, 3600);
         $final = $this->transform($response);
         $stmt = $this->mysqli->prepare($this->q);
+
         foreach ($final as &$f) {
-            $fid = $f['regid']['val'];
+            $fid = $f['regid']['val'] ?? false;
+            if (!$fid) { continue; }
             $obj = json_encode($f);
             $run = NULL;
             $stmt->bind_param("ssss", $this->action, $fid, $obj, $run);
@@ -176,6 +177,15 @@ class IfController extends AbstractController
         if ($i->get($ip)) { $o->{$op} = $i->{$ip}[0]; }
     }
     public function act_r1(Request $request, Response $response, array $args = []): Response {
+        if (($args['uuid'] ?? null) == 'invalidate-cache') {
+            $clr = $this->fscache->clear();
+            $res = [
+                'endpoint' => 'Invalidate cache',
+                'result' => $clr
+            ];
+            return $response->withJson($res);
+        }
+
         $action = 'd65d2468-afe0-40c2-986c-e67047141013';
         $p = $request->getQueryParams();
         $fp = [];
