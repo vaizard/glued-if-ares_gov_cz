@@ -111,9 +111,9 @@ class IfController extends AbstractController
         if ($this->fscache->has($key)) {
             $response = $this->fscache->get($key);
             $final = $this->transform($response);
-            foreach ($final as &$f) {
+            foreach ($final as $k => &$f) {
                 $fid = $f['regid']['val'] ?? false;
-                if (!$fid) { unset($final['$k']); } // clear items without a regid
+                if (!$fid) { unset($final[$k]); } // clear items without a regid
                 $f['save'] = $base = $this->settings['glued']['protocol'].$this->settings['glued']['hostname'].$this->settings['routes']['be_contacts_import_v1']['path'] . '/';
                 $f['save'] .= "$this->action/$fid";
             }
@@ -136,7 +136,7 @@ class IfController extends AbstractController
 
         foreach ($final as $k => &$f) {
             $fid = $f['regid']['val'] ?? false;
-            if (!$fid) { unset($final['$k']); } // clear items without a regid
+            if (!$fid) { unset($final[$k]); } // clear items without a regid
             $obj = json_encode($f);
             $run = NULL;
             $stmt->bind_param("ssss", $this->action, $fid, $obj, $run);
