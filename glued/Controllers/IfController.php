@@ -117,7 +117,7 @@ class IfController extends AbstractController
                 $f['save'] = $base = $this->settings['glued']['protocol'].$this->settings['glued']['hostname'].$this->settings['routes']['be_contacts_import_v1']['path'] . '/';
                 $f['save'] .= "$this->action/$fid";
             }
-            return $final;
+            return array_values($final); // reindex array (when keys are unset)
         }
 
         try {
@@ -144,7 +144,7 @@ class IfController extends AbstractController
             $f['save'] = $base = $this->settings['glued']['protocol'].$this->settings['glued']['hostname'].$this->settings['routes']['be_contacts_import_v1']['path'] . '/';
             $f['save'] .= "$this->action/$fid";
         }
-        return $final;
+        return array_values($final); // reindex array (when keys are unset)
     }
 
 
