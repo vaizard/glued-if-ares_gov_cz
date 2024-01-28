@@ -17,12 +17,12 @@ routes:
     # IF SVC / ares_gov_cz / INFO                           #
     #########################################################
 
-    be_if_svc_ares_gov_cz_v1:
+    be_if_svc_ares_gov_cz_docs_v1:
         pattern:    ${routes.be_if.path}/svc/ares_gov_cz/docs/v1
         path:       ${routes.be_if.path}/svc/ares_gov_cz/docs/v1
         label:      ares_gov_cz
         dscr:       Caretag SQL based integration service.
-        service:    IF
+        service:    if/ares_gov_cz
         provides:   docs
         methods:
             get:    Glued\Controllers\IfController:docs_r1
@@ -36,6 +36,6 @@ routes:
         path:       ${routes.be_if.path}/svc/ares_gov_cz/v1/act
         label:      Run action
         dscr:       Run an action
-        service:    if
+        service:    if/ares_gov_cz
         methods:
             get:    Glued\Controllers\IfController:act_r1
