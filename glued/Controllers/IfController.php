@@ -42,8 +42,8 @@ class IfController extends AbstractController
         $transformer = new ArrayTransformer();
         $transformer
             ->set('domicile', 'CZ')
-            ->map('regid.val', 'ico')
-            ->map('vatid.val', 'dic')
+            ->map('regid.0.val', 'ico')
+            ->map('vatid.0.val', 'dic')
             ->map('name.0.val', 'obchodniJmeno')
             ->map('name.0.kind', 'obchodniJmeno',
                 $transformer->rule()->callback(function ($v) { return 'business'; } ))
@@ -63,9 +63,9 @@ class IfController extends AbstractController
             ->map('address.1.val', 'adresaDorucovaci.textovaAdresa')
             ->map('address.1.kind', 'adresaDorucovaci.textovaAdresa',
                 $transformer->rule()->callback(function ($v) { return 'forwarding'; } ))
-            ->map('registration.0.date.establishing', 'datumVzniku')
-            ->map('registration.0.date.update', 'datumAktualizace')
-            ->map('registration.0.date.termination', 'datumZaniku')
+            ->map('registration.0.date.eff', 'datumVzniku')
+            ->map('registration.0.date.upd', 'datumAktualizace')
+            ->map('registration.0.date.exp', 'datumZaniku')
             ->set('registration.0.kind', 'business');
         $data = json_decode($data, true);
         foreach ($data['ekonomickeSubjekty'] as $item) {
@@ -112,7 +112,7 @@ class IfController extends AbstractController
             $response = $this->fscache->get($key);
             $final = $this->transform($response);
             foreach ($final as $k => &$f) {
-                $fid = $f['regid']['val'] ?? false;
+                $fid = $f['regid'][0]['val'] ?? false;
                 if (!$fid) { unset($final[$k]); } // clear items without a regid
                 $f['save'] = $base = $this->settings['glued']['protocol'].$this->settings['glued']['hostname'].$this->settings['routes']['be_contacts_import_v1']['path'] . '/';
                 $f['save'] .= "$this->action/$fid";
@@ -135,13 +135,13 @@ class IfController extends AbstractController
         $stmt = $this->mysqli->prepare($this->q);
 
         foreach ($final as $k => &$f) {
-            $fid = $f['regid']['val'] ?? false;
+            $fid = $f['regid'][0]['val'] ?? false;
             if (!$fid) { unset($final[$k]); } // clear items without a regid
             $obj = json_encode($f);
             $run = NULL;
             $stmt->bind_param("ssss", $this->action, $fid, $obj, $run);
             $stmt->execute();
-            $f['save'] = $base = $this->settings['glued']['protocol'].$this->settings['glued']['hostname'].$this->settings['routes']['be_contacts_import_v1']['path'] . '/';
+            $f['save'] = $this->settings['glued']['protocol'].$this->settings['glued']['hostname'].$this->settings['routes']['be_contacts_import_v1']['path'] . '/';
             $f['save'] .= "$this->action/$fid";
         }
         return array_values($final); // reindex array (when keys are unset)
