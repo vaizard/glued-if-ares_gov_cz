@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Glued\Controllers;
 
+use Glued\Lib\Controllers\AbstractIf;
 use JsonPath\JsonObject;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface as Response;
@@ -14,26 +15,15 @@ use Symfony\Component\HttpClient\HttpClient;
 use Selective\Transformer\ArrayTransformer;
 
 
-class IfController extends AbstractController
+class IfController extends AbstractIf
 {
 
     private $action;
-    private $service;
-    private $q;
 
     public function __construct(ContainerInterface $c)
     {
         parent::__construct($c);
-        $this->action =  'd65d2468-afe0-40c2-986c-e67047141013';
-        $this->service = '39542e95-db70-4fd1-bba8-2cb52870dffd';
-        $this->q = "INSERT INTO t_if__objects (c_action, c_fid, c_data, c_run) 
-              VALUES (uuid_to_bin(?, true), ?, ?, uuid_to_bin(?, true)) 
-              ON DUPLICATE KEY UPDATE
-              c_rev = IF(c_data != VALUES(c_data), c_rev + 1, c_rev),
-              c_run = IF(c_data != VALUES(c_data), VALUES(c_run), c_run),
-              c_data = IF(c_data != VALUES(c_data), VALUES(c_data), c_data);";
     }
-
 
 
     private function transform($data)
@@ -41,14 +31,18 @@ class IfController extends AbstractController
         $objs = [];
         $transformer = new ArrayTransformer();
         $transformer
-            ->set('domicile', 'CZ')
-            ->map('regid.0.val', 'ico')
-            ->map('vatid.0.val', 'dic')
+            ->set('props',['legal'])
+            ->set('id.0.countrycode','CZ')
+            ->map('id.0.regid', 'ico')
+            ->map('id.0.vatid', 'dic')
+            ->map('id.0.registry.iat', 'datumVzniku')
+            ->map('id.0.registry.uat', 'datumAktualizace')
+            ->map('id.0.registry.eat', 'datumZaniku')
             ->map('name.0.val', 'obchodniJmeno')
-            ->map('name.0.kind', 'obchodniJmeno',
-                $transformer->rule()->callback(function ($v) { return 'business'; } ))
+            ->map('name.0.props.0', 'obchodniJmeno',
+                $transformer->rule()->callback(function ($v) { return 'principal'; } ))
             ->map('address.0.kind', 'adresaDorucovaci.textovaAdresa',
-                $transformer->rule()->callback(function ($v) { return 'business'; } ))
+                $transformer->rule()->callback(function ($v) { return 'postal'; } ))
             ->map('address.0.val', 'sidlo.textovaAdresa')
             ->map('address.0.countrycode','sidlo.kodStatu')
             ->map('address.0.region', 'sidlo.nazevKraje')
@@ -59,34 +53,39 @@ class IfController extends AbstractController
             ->map('address.0.streetnumber', 'sidlo.cisloOrientacni')
             ->map('address.0.suburb', 'sidlo.nazevCastiObce')
             ->map('address.0.postcode', 'sidlo.psc')
-            ->set('address.0.kind', 'business')
+            ->set('address.0.props', ['principal'])
             ->map('address.1.val', 'adresaDorucovaci.textovaAdresa')
-            ->map('address.1.kind', 'adresaDorucovaci.textovaAdresa',
-                $transformer->rule()->callback(function ($v) { return 'forwarding'; } ))
-            ->map('registration.0.date.eff', 'datumVzniku')
-            ->map('registration.0.date.upd', 'datumAktualizace')
-            ->map('registration.0.date.exp', 'datumZaniku')
-            ->set('registration.0.kind', 'business');
+            ->map('address.1.props', 'adresaDorucovaci.textovaAdresa',
+                $transformer->rule()->callback(function ($v) { return ['forwarding']; } ))
+
+            ;
         $data = json_decode($data, true);
         foreach ($data['ekonomickeSubjekty'] as $item) {
             $i = new JsonObject($item, true);
             $obj = $transformer->toArray($item);
-            if ($i->{'$.dalsiUdaje.*.spisovaZnacka'}) { $obj['registration'][0]['val'] = $i->{'$.dalsiUdaje.*.spisovaZnacka'}[0]; }
+            if ($i->{'$.dalsiUdaje.*.spisovaZnacka'}) { $obj['id'][0]['registry']['file'] = $i->{'$.dalsiUdaje.*.spisovaZnacka'}[0]; }
+            $obj['id'][0]['val'] = implode(", ", [ $obj['id'][0]['regid'] ?? null, $obj['id'][0]['vatid'] ?? null, $obj['id'][0]['registry']['file'] ?? null ]);
             $objs[] = $obj;
         }
         return $objs;
     }
+
+
+
+
 
     //private function fetch(string $id, &$result_raw = null) :? mixed
     private function fetch(array $q) : mixed
     {
         $uri = 'https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/vyhledat';
         $qValid = false;
-
+        $base = $this->settings['glued']['protocol'].$this->settings['glued']['hostname'].$this->settings['routes']['be_contacts_import']['pattern'];
+        $base = str_replace('{act}/{key}', '', $base);
         $reqbody = [
             'pocet' => 10,
             'razeni' => []
         ];
+
         if (array_key_exists('q', $q)) {
             $qValid = true;
             if (is_array($q['q'])) { throw new \Exception('Only a single q parameter is allowed', 400); }
@@ -112,10 +111,14 @@ class IfController extends AbstractController
             $response = $this->fscache->get($key);
             $final = $this->transform($response);
             foreach ($final as $k => &$f) {
-                $fid = $f['regid'][0]['val'] ?? false;
-                if (!$fid) { unset($final[$k]); } // clear items without a regid
-                $f['save'] = $base = $this->settings['glued']['protocol'].$this->settings['glued']['hostname'].$this->settings['routes']['be_contacts_import_v1']['path'] . '/';
-                $f['save'] .= "$this->action/$fid";
+                $fid = $f['id'][0]['regid'] ?? false;
+                if (!$fid) {
+                    // clear items without a regid, skip saving etc.
+                    unset($final[$k]);
+                    continue;
+                }
+                $this->cacheValidActionsresponse($this->action, resPayload: $f, fid: $fid);
+                $f['import'] = "{$base}{$this->action}/{$fid}";
             }
             return array_values($final); // reindex array (when keys are unset)
         }
@@ -132,48 +135,24 @@ class IfController extends AbstractController
         $response = $client->getResponse()->getContent() ?? null;
         $this->fscache->set($key, $response, 3600);
         $final = $this->transform($response);
-        $stmt = $this->mysqli->prepare($this->q);
 
         foreach ($final as $k => &$f) {
-            $fid = $f['regid'][0]['val'] ?? false;
-            if (!$fid) { unset($final[$k]); } // clear items without a regid
-            $obj = json_encode($f);
-            $run = NULL;
-            $stmt->bind_param("ssss", $this->action, $fid, $obj, $run);
-            $stmt->execute();
-            $f['save'] = $this->settings['glued']['protocol'].$this->settings['glued']['hostname'].$this->settings['routes']['be_contacts_import_v1']['path'] . '/';
-            $f['save'] .= "$this->action/$fid";
+            $fid = $f['id'][0]['regid'] ?? false;
+            if (!$fid) {
+                // clear items without a regid, skip saving etc.
+                unset($final[$k]);
+                continue;
+            }
+            $this->cacheValidActionsresponse($this->action, resPayload: $f, fid: $fid);
+            $f['import'] = "{$base}{$this->action}/{$fid}";
         }
         return array_values($final); // reindex array (when keys are unset)
     }
 
 
-    function addIssKey(&$array) {
-        foreach ($array as $key => &$value) {
-            if (is_array($value)) {
-                addIssKey($value); // Recursively check nested arrays
-            } else {
-                if ($key === 'val') {
-                    $array['iss'] = 'ares.gov.cz';
-                }
-            }
-        }
-    }
-
-    private function map(&$i,$ip,&$o,$op) {
-        if ($i->get($ip)) { $o->{$op} = $i->{$ip}[0]; }
-    }
-    public function act_r1(Request $request, Response $response, array $args = []): Response {
-        if (($args['uuid'] ?? null) == 'invalidate-cache') {
-            $clr = $this->fscache->clear();
-            $res = [
-                'endpoint' => 'Invalidate cache',
-                'result' => $clr
-            ];
-            return $response->withJson($res);
-        }
-
-        $action = 'd65d2468-afe0-40c2-986c-e67047141013';
+    public function query(Request $request, Response $response, array $args = []): Response
+    {
+        $this->action = $this->getActionUUID($args['deployment'], (string) $request->getUri()->getPath(), (string) $request->getMethod());
         $p = $request->getQueryParams();
         $fp = [];
         if (isset($p['regid'])) { $fp['regid'] = $p['regid']; }
@@ -186,13 +165,16 @@ class IfController extends AbstractController
         return $response->withJson($res);
     }
 
-
-
-    public function docs_r1(Request $request, Response $response, array $args = []): Response {
-        return $response->withJson($args);
+    public function resetCache(Request $request, Response $response, array $args = []): Response
+    {
+        $clr = $this->fscache->clear();
+        $res = [
+            'service' => 'if/ares_gov_cz',
+            'endpoint' => 'Invalidate cache',
+            'result' => $clr
+        ];
+        return $response->withJson($res);
     }
-
-
 
 
 }

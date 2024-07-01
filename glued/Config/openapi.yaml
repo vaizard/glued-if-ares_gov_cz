@@ -1,0 +1,84 @@
+openapi: 3.1.0
+info:
+  title: IF/ares.gov.cz API
+  description: Bindings to the czech economic register ares.gov.cz.
+  version: 1.0.0
+  x-glued-service: if/ares_gov_cz
+servers:
+  - url: /api/if/svc/ares_gov_cz
+paths:
+  /:
+    x-glued-pathname: be_if_svc_ares_gov_cz
+    x-glued-provides: openapi
+    get:
+      x-glued-method: Glued\Controllers\IfController:getOpenapi
+      summary: IF/ares.gov.cz OpenAPI specs and ingress
+      description: IF/ares.gov.cz Ingress point. Returns the OpenAPI YAML specification for the IF API.
+      operationId: IfAresGovCzGetOpenapi
+      responses:
+        '200':
+          description: Ok
+          content:
+            application/yaml:
+              schema:
+                type: string
+  /v1/{deployment}:
+    x-glued-pathname: be_if_svc_ares_gov_cz_methods
+    x-glued-provides: service
+    get:
+      x-glued-method: Glued\Controllers\IfController:methods
+      summary: Methods
+      description: A list of methods available to version/deployment combination.
+      operationId: IfAresGovCzGetMethods
+      parameters:
+        - name: deployment
+          in: path
+          required: true
+          description: Get available deployments at /api/if/v1/deployments?name=ares_gov_cz
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Ok
+  /v1/{deployment}/health:
+    x-glued-pathname: be_if_svc_ares_gov_cz_health
+    x-glued-provides: health
+    get:
+      x-glued-method: Glued\Controllers\IfController:getHealth
+      summary: Healthcheck
+      description: A healthcheck endpoint.
+      operationId: IfAresGovCzGetHealth
+      parameters:
+        - name: deployment
+          in: path
+          required: true
+          description: Get available deployments at /api/if/v1/deployments?name=ares_gov_cz
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Ok
+  /v1/{deployment}/query:
+    x-glued-pathname: be_if_svc_ares_gov_cz_query
+    x-glued-provides: service
+    get:
+      x-glued-method: Glued\Controllers\IfController:query
+      summary: Query
+      description: A caching ares frontend
+      operationId: IfAresGovCzGetQuery
+      parameters:
+      responses:
+        '200':
+          description: Ok
+  /v1/{deployment}/reset-cache:
+    x-glued-pathname: be_if_svc_ares_gov_cz_reset_cache
+    x-glued-provides: service
+    get:
+      x-glued-method: Glued\Controllers\IfController:resetCache
+      summary: Reset caches
+      description: Resets results cached from ares.gov.cz
+      operationId: IfAresGovCzGetResetCache
+      parameters:
+      responses:
+        '200':
+          description: Ok

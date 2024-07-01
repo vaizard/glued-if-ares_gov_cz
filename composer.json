@@ -9,7 +9,7 @@
     }
   ],
   "require": {
-    "php": "^8.2",
+    "php": "^8.3",
     "ext-apcu": "*",
     "ext-bcmath": "*",
     "ext-curl": "*",
@@ -32,7 +32,8 @@
     "phpfastcache/phpfastcache": "^9",
     "ramsey/uuid": "^4",
     "sabre/event": "^6",
-    "selective/transformer": "^1.3",
+    "selective/transformer": "^1",
+    "paragonie/csp-builder": "^3",
     "slim/http": "^1",
     "slim/slim": "^4",
     "symfony/yaml": "^6",
@@ -76,8 +77,8 @@
     ],
     "configure": [
       "vendor/vaizard/glued-lib/src/Scripts/initpaths.sh",
-      "Glued\\Lib\\ComposerHooks::configTool",
-      "vendor/vaizard/glued-lib/src/Scripts/cacheroutes.sh"
+      "vendor/vaizard/glued-lib/src/Scripts/rebuild-datacache.sh",
+      "Glued\\Lib\\ComposerHooks::configTool"
     ],
     "migrate": [
       "vendor/vaizard/glued-lib/src/Scripts/migrate.sh"
