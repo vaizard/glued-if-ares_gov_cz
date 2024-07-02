@@ -157,11 +157,8 @@ class IfController extends AbstractIf
         $fp = [];
         if (isset($p['regid'])) { $fp['regid'] = $p['regid']; }
         if (isset($p['q'])) { $fp['q'] = $p['q']; }
-        $data = $this->fetch($fp);
-        $res = [
-            'results' => count($data),
-            'data' => $data
-        ];
+        $res = $this->fetch($fp);
+        if (count($res)<1) {return $response->withJson(['code' => 404])->withStatus(404);}
         return $response->withJson($res);
     }
 
