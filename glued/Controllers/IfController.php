@@ -79,7 +79,7 @@ class IfController extends AbstractIf
     {
         $uri = 'https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/vyhledat';
         $qValid = false;
-        $base = $this->settings['glued']['protocol'].$this->settings['glued']['hostname'].$this->settings['routes']['be_contacts_import']['pattern'];
+        $base = $this->settings['glued']['protocol'].$this->settings['glued']['hostname'].$this->settings['routes']['be_contacts_import_v1']['pattern'];
         $base = str_replace('{act}/{key}', '', $base);
         $reqbody = [
             'pocet' => 10,
